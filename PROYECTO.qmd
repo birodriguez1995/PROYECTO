@@ -1,0 +1,129 @@
+**1) ¿Cuáles son las principales diferencias entre un modelo ARMA y un modelo ARIMA?**
+
+Un modelo **ARMA(p,q)** combina dos componentes: autoregresivo (AR) y media móvil (MA). Se aplica directamente sobre una serie temporal que ya es estacionaria. La forma general es:
+
+El modelo **ARIMA(p,d,q)**, en cambio, se utiliza para series **no estacionarias**. El parámetro **d** representa el número de diferencias necesarias para convertir la serie en estacionaria. En resumen:
+
+-    ![](images/clipboard-1713570216.png){width="217" height="53"}
+
+-   **ARMA**: serie estacionaria
+
+-   **ARIMA**: serie no estacionaria, transformada mediante diferenciación
+
+**2) ¿Por qué es importante la estacionariedad en el análisis de series temporales?**
+
+La estacionariedad garantiza que las propiedades estadísticas de la serie (media, varianza, covarianza) no cambien con el tiempo. Esto es fundamental porque:
+
+-   Permite modelar con mayor precisión.
+
+-   Hace que los modelos tengan poder predictivo.
+
+-   Facilita la interpretación de relaciones entre variables.
+
+-   La mayoría de modelos (como ARMA, VAR) requieren estacionariedad para una estimación válida.
+
+**3) ¿Qué es un modelo de Vector de Corrección de Errores (VEC) y cuándo se utiliza?**
+
+El modelo **VECM (Vector Error Correction Model)** es una forma restringida del modelo VAR aplicada cuando **las variables están cointegradas**. Es útil cuando las series:
+
+-   Son **no estacionarias** en niveles.
+
+-   Pero están **cointegradas** (existe una combinación lineal estacionaria).
+
+El modelo capta tanto la **dinámica de corto plazo** como el **ajuste hacia el equilibrio de largo plazo** entre las variables.
+
+**4) ¿Qué significa que dos series temporales estén cointegradas y cuál es su importancia?**
+
+Dos o más series están **cointegradas** si, aunque sean no estacionarias por separado, existe una combinación lineal entre ellas que sí lo es.
+
+Esto implica una **relación de equilibrio a largo plazo** entre las series, importante porque:
+
+-   Permite modelar relaciones significativas entre variables económicas.
+
+-   Justifica el uso de modelos como VECM.
+
+-   Evita regresiones espurias en series no estacionarias.
+
+**5) Análisis práctico con la base de datos Canada**
+
+**a) ¿El objeto es serie temporal?**
+
+library(vars)
+
+data(Canada)
+
+class(Canada)
+
+✅ El objeto es de clase "ts", lo que confirma que es una serie temporal.
+
+**b) Graficar diferencias**
+
+dU \<- diff(Canada\[, "U"\])
+
+dProd \<- diff(Canada\[, "prod"\])
+
+par(mfrow = c(2, 1))
+
+plot(dU, main = "Diferencia de la tasa de desempleo (U)", col = "red")
+
+plot(dProd, main = "Diferencia de la producción (prod)", col = "blue")
+
+**Verificamos estacionariedad con ADF:**
+
+library(tseries)
+
+adf.test(Canada\[, "U"\])      \# no estacionaria
+
+adf.test(dU)                 \# estacionaria
+
+adf.test(Canada\[, "prod"\])
+
+adf.test(dProd)
+
+**Ambas series requieren una diferencia para volverse estacionarias.**
+
+**c) Determinar el orden de los rezagos (parsimonia)**
+
+VARselect(Canada\[, c("U", "prod")\], lag.max = 10, type = "const")
+
+Según los criterios AIC y SC, el orden óptimo sugerido suele ser **2 rezagos**. Se escoge el más bajo que explique adecuadamente las series, cumpliendo el principio de **parsimonia**.
+
+**d) Estimar el modelo VAR**
+
+modelo_VAR \<- VAR(Canada\[, c("U", "prod")\], p = 2, type = "const")
+
+summary(modelo_VAR)
+
+Se estima el modelo VAR con 2 rezagos.
+
+**e) ¿Desempleo causa a producción?**
+
+causality(modelo_VAR, cause = "U")
+
+Si el **p-valor \< 0.05**, entonces:\
+**Conclusión**: Rechazamos la hipótesis nula. La variable **desempleo (U) causa a producción (prod)** en el sentido de Granger.
+
+**f) ¿Producción causa a desempleo?**
+
+causality(modelo_VAR, cause = "prod")
+
+Si el **p-valor \< 0.05**, entonces:\
+**Conclusión**: Rechazamos la hipótesis nula. La variable **producción (prod) causa a desempleo (U)** en el sentido de Granger.
+
+**g) Dirección de la causalidad**
+
+Según los resultados:
+
+-   Si ambos p-valores son \< 0.05 → **Causalidad bidireccional**
+
+-   Si solo uno lo es → **Causalidad unidireccional**
+
+-   Si ninguno → **No hay causalidad**
+
+Ejemplo: si ambos son significativos → **Hay retroalimentación entre desempleo y producción**.
+
+**h) ¿Qué variable es endógena?**
+
+En un modelo VAR, todas las variables son **endógenas** porque se explican en función de sus propios rezagos y de los rezagos de las otras variables.
+
+Sin embargo, puedes observar cuál variable es **más explicada** (mayor R² en su ecuación) para sugerir cuál tiene mayor dependencia interna.
